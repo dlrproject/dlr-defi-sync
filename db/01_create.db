@@ -1,0 +1,185 @@
+-- 创建pairs表 交易对
+CREATE TABLE IF NOT EXISTS pairs (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    address VARCHAR(42) NOT NULL UNIQUE, --交易对地址
+    token0_address VARCHAR(42) NOT NULL, --代币0地址
+    token1_address VARCHAR(42) NOT NULL, --代币1地址
+    token0_symbol VARCHAR(20) NOT NULL,  --代币0符号
+    token1_symbol VARCHAR(20) NOT NULL,  --代币1符号
+    token0_decimals INT NOT NULL,  --代币0精度
+    token1_decimals INT NOT NULL,  --代币1精度
+    reserve0 DECIMAL(36,18) NOT NULL, --代币0储备量
+    reserve1 DECIMAL(36,18) NOT NULL, --代币1储备量
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, --创建时间
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, --更新时间
+    is_active BOOLEAN DEFAULT true,
+    INDEX idx_token0 (token0_address),
+    INDEX idx_token1 (token1_address)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='存储所有交易对的基本信息';
+
+-- 创建tokens表
+CREATE TABLE IF NOT EXISTS tokens (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    address VARCHAR(42) NOT NULL UNIQUE, --代币地址
+    symbol VARCHAR(20) NOT NULL, --代币符号
+    name VARCHAR(100) NOT NULL, --代币名字
+    decimals INT NOT NULL, --代币精度
+    total_supply DECIMAL(36,18) NOT NULL, --代币总量
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, --创建时间
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, --更新时间
+    INDEX idx_symbol (symbol)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='存储所有代币的基本信息';
+
+-- 创建swaps表 交易记录
+CREATE TABLE IF NOT EXISTS swaps (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY, 
+    pair_id BIGINT NOT NULL, --交易对id
+    transaction_hash VARCHAR(66) NOT NULL, --交易哈希
+    block_number BIGINT NOT NULL, --区块号
+    timestamp TIMESTAMP NOT NULL, --时间戳
+    sender VARCHAR(42) NOT NULL, --交易发送者
+    amount0_in DECIMAL(36,18) NOT NULL, --代币0输入量
+    amount1_in DECIMAL(36,18) NOT NULL, --代币1输入量
+    amount0_out DECIMAL(36,18) NOT NULL, --代币0输出量
+    amount1_out DECIMAL(36,18) NOT NULL, --代币1输出量
+    price DECIMAL(36,18) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (pair_id) REFERENCES pairs(id),
+    INDEX idx_pair_timestamp (pair_id, timestamp),
+    INDEX idx_block (block_number)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='记录所有交易历史';
+
+-- 创建liquidity表
+CREATE TABLE IF NOT EXISTS liquidity (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    pair_id BIGINT NOT NULL,  --交易对id
+    provider VARCHAR(42) NOT NULL, --交易对提供者
+    amount0 DECIMAL(36,18) NOT NULL, --代币0数量
+    amount1 DECIMAL(36,18) NOT NULL, --代币1数量
+    liquidity_tokens DECIMAL(36,18) NOT NULL, --lp代币数量
+    block_number BIGINT NOT NULL, --区块号
+    timestamp TIMESTAMP NOT NULL, --时间戳
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, --记录创建时间
+    FOREIGN KEY (pair_id) REFERENCES pairs(id),
+    INDEX idx_pair_provider (pair_id, provider),
+    INDEX idx_block (block_number)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='记录流动性提供者信息';
+
+-- 创建sync_blocks表
+CREATE TABLE IF NOT EXISTS sync_blocks (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    chain_id INT NOT NULL, --链id
+    last_synced_block BIGINT NOT NULL, --最后同步区块
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, --创建时间
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, --更新时间
+    UNIQUE KEY uk_chain_id (chain_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='记录同步进度';
+
+-- 添加列注释
+ALTER TABLE pairs
+    MODIFY COLUMN address VARCHAR(42) NOT NULL COMMENT '交易对合约地址',
+    MODIFY COLUMN token0_address VARCHAR(42) NOT NULL COMMENT '代币0地址',
+    MODIFY COLUMN token1_address VARCHAR(42) NOT NULL COMMENT '代币1地址',
+    MODIFY COLUMN token0_symbol VARCHAR(20) NOT NULL COMMENT '代币0符号',
+    MODIFY COLUMN token1_symbol VARCHAR(20) NOT NULL COMMENT '代币1符号',
+    MODIFY COLUMN token0_decimals INT NOT NULL COMMENT '代币0精度',
+    MODIFY COLUMN token1_decimals INT NOT NULL COMMENT '代币1精度',
+    MODIFY COLUMN reserve0 DECIMAL(36,18) NOT NULL COMMENT '代币0储备量',
+    MODIFY COLUMN reserve1 DECIMAL(36,18) NOT NULL COMMENT '代币1储备量';
+
+ALTER TABLE tokens
+    MODIFY COLUMN address VARCHAR(42) NOT NULL COMMENT '代币合约地址',
+    MODIFY COLUMN symbol VARCHAR(20) NOT NULL COMMENT '代币符号',
+    MODIFY COLUMN name VARCHAR(100) NOT NULL COMMENT '代币名称',
+    MODIFY COLUMN decimals INT NOT NULL COMMENT '代币精度',
+    MODIFY COLUMN total_supply DECIMAL(36,18) NOT NULL COMMENT '总供应量';
+
+ALTER TABLE swaps
+    MODIFY COLUMN pair_id BIGINT NOT NULL COMMENT '关联交易对ID',
+    MODIFY COLUMN transaction_hash VARCHAR(66) NOT NULL COMMENT '交易哈希',
+    MODIFY COLUMN block_number BIGINT NOT NULL COMMENT '区块号',
+    MODIFY COLUMN sender VARCHAR(42) NOT NULL COMMENT '发送者地址',
+    MODIFY COLUMN amount0_in DECIMAL(36,18) NOT NULL COMMENT '代币0输入量',
+    MODIFY COLUMN amount1_in DECIMAL(36,18) NOT NULL COMMENT '代币1输入量',
+    MODIFY COLUMN amount0_out DECIMAL(36,18) NOT NULL COMMENT '代币0输出量',
+    MODIFY COLUMN amount1_out DECIMAL(36,18) NOT NULL COMMENT '代币1输出量',
+    MODIFY COLUMN price DECIMAL(36,18) NOT NULL COMMENT '交易价格';
+
+ALTER TABLE liquidity
+    MODIFY COLUMN pair_id BIGINT NOT NULL COMMENT '关联交易对ID',
+    MODIFY COLUMN provider VARCHAR(42) NOT NULL COMMENT '流动性提供者地址',
+    MODIFY COLUMN amount0 DECIMAL(36,18) NOT NULL COMMENT '代币0数量',
+    MODIFY COLUMN amount1 DECIMAL(36,18) NOT NULL COMMENT '代币1数量',
+    MODIFY COLUMN liquidity_tokens DECIMAL(36,18) NOT NULL COMMENT 'LP代币数量';
+
+ALTER TABLE sync_blocks
+    MODIFY COLUMN chain_id INT NOT NULL COMMENT '链ID',
+    MODIFY COLUMN last_synced_block BIGINT NOT NULL COMMENT '最后同步的区块号';
+
+-- 创建更新时间触发器函数
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- 为需要自动更新updated_at的表创建触发器
+CREATE TRIGGER update_pairs_updated_at
+    BEFORE UPDATE ON pairs
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_tokens_updated_at
+    BEFORE UPDATE ON tokens
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_sync_blocks_updated_at
+    BEFORE UPDATE ON sync_blocks
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- 添加注释
+COMMENT ON TABLE pairs IS '存储所有交易对的基本信息';
+COMMENT ON TABLE tokens IS '存储所有代币的基本信息';
+COMMENT ON TABLE swaps IS '记录所有交易历史';
+COMMENT ON TABLE liquidity IS '记录流动性提供者信息';
+COMMENT ON TABLE sync_blocks IS '记录同步进度';
+
+-- 添加列注释
+COMMENT ON COLUMN pairs.address IS '交易对合约地址';
+COMMENT ON COLUMN pairs.token0_address IS '代币0地址';
+COMMENT ON COLUMN pairs.token1_address IS '代币1地址';
+COMMENT ON COLUMN pairs.token0_symbol IS '代币0符号';
+COMMENT ON COLUMN pairs.token1_symbol IS '代币1符号';
+COMMENT ON COLUMN pairs.token0_decimals IS '代币0精度';
+COMMENT ON COLUMN pairs.token1_decimals IS '代币1精度';
+COMMENT ON COLUMN pairs.reserve0 IS '代币0储备量';
+COMMENT ON COLUMN pairs.reserve1 IS '代币1储备量';
+
+COMMENT ON COLUMN tokens.address IS '代币合约地址';
+COMMENT ON COLUMN tokens.symbol IS '代币符号';
+COMMENT ON COLUMN tokens.name IS '代币名称';
+COMMENT ON COLUMN tokens.decimals IS '代币精度';
+COMMENT ON COLUMN tokens.total_supply IS '总供应量';
+
+COMMENT ON COLUMN swaps.pair_id IS '关联交易对ID';
+COMMENT ON COLUMN swaps.transaction_hash IS '交易哈希';
+COMMENT ON COLUMN swaps.block_number IS '区块号';
+COMMENT ON COLUMN swaps.sender IS '发送者地址';
+COMMENT ON COLUMN swaps.amount0_in IS '代币0输入量';
+COMMENT ON COLUMN swaps.amount1_in IS '代币1输入量';
+COMMENT ON COLUMN swaps.amount0_out IS '代币0输出量';
+COMMENT ON COLUMN swaps.amount1_out IS '代币1输出量';
+COMMENT ON COLUMN swaps.price IS '交易价格';
+
+COMMENT ON COLUMN liquidity.pair_id IS '关联交易对ID';
+COMMENT ON COLUMN liquidity.provider IS '流动性提供者地址';
+COMMENT ON COLUMN liquidity.amount0 IS '代币0数量';
+COMMENT ON COLUMN liquidity.amount1 IS '代币1数量';
+COMMENT ON COLUMN liquidity.liquidity_tokens IS 'LP代币数量';
+
+COMMENT ON COLUMN sync_blocks.chain_id IS '链ID';
+COMMENT ON COLUMN sync_blocks.last_synced_block IS '最后同步的区块号'; 
